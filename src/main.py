@@ -13,7 +13,7 @@ async def main():
 
     print("🚀 Agente autónomo iniciado...\n")
     # objetivo = input("🎯 Objetivo del agente: ")
-    objetivo = "Descarga el boletín financiero y valores de riesgos más recientes de todo el Segmento 1 de cooperativas en Ecuador."
+    objetivo = "Segmento 1, fecha más reciente"
     print(f"🎯 Objetivo: {objetivo}")
 
     result = await Runner.run(

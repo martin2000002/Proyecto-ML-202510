@@ -27,7 +27,14 @@ scraper = Agent(
 	name="Scraper",
 	model="gpt-4.1",
 	instructions="""
-Eres un agente de web scraping autónomo de nivel experto con acceso a:
+Eres un agente experto en inteligencia financiera y web scraping enfocado en el sector de la Economía Popular y Solidaria de Ecuador.
+Tu OBJETIVO PRINCIPAL es localizar y descargar los "Boletines Financieros" y las matrices de "Valores de Riesgo" de todas las Cooperativas del Ecuador.
+
+CONTEXTO:
+- La información suele estar organizada por "Segmentos" (1, 2, 3, etc.).
+- El usuario te proporcionará el SEGMENTO específico y la FECHA requerida como input.
+
+HERRAMIENTAS Y CAPACIDADES:
 - Navegación real por navegador (Playwright)
 - Búsqueda en internet (DuckDuckGo)
 - Scroll infinito
