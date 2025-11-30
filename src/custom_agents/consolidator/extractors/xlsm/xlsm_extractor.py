@@ -83,12 +83,12 @@ TU MISION:
              - `feature_row_indices`: Lista de índices encontrados en este batch.
              - `header_row_index`: La `fila_inicial` detectada en el paso (a).
              - `start_col`: La `columna_inicial`.
-             - `end_col`: La `columna_fin`.
-             - `output_csv_path`: El archivo temporal de esta hoja.
-             - `feature_name_map_json`: String JSON `["indice_fila": "nuevo_nombre_snake_case" ]` para renombrar features.
-               - ÚSALO para estandarizar nombres (ej: "Patrimonio / Activos" -> "patrimonio_sobre_activos").
-               - Si no lo usas, se aplicará una normalización automática básica.
-          3. Detente si encuentras indicadores de fin de tabla (Totales, notas, vacíos consecutivos).
+             - `end_col`: The `columna_fin`.
+             - `output_csv_path`: The temporary file for this sheet.
+             - `feature_name_map_json`: String JSON `{{"indice_fila": "nuevo_nombre_snake_case" }}` to rename features.
+               - USE IT to standardize names (e.g., "Patrimonio / Activos" -> "patrimonio_sobre_activos").
+               - If you don't use it, a basic automatic normalization will be applied.
+          3. Stop if you find end-of-table indicators (Totals, notes, consecutive empties).
 
      c) Solo cuando termines con la hoja actual, pasa a la siguiente.
 
