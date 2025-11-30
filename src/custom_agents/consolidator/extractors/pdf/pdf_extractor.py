@@ -1,75 +1,21 @@
-import base64
 import os
 from agents import Agent, Runner, function_tool
+from tools.shared import report_agent_start
 from tools.shared import log
-from tools.pdf_tools import extract_text_from_pdf
-
-def file_to_base64(file_path: str) -> str:
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
-
-@function_tool
-def save_csv_from_pdf(content: str, output_filename: str) -> str:
-    """
-    Saves the extracted CSV content to a file in data/preprocessed/.
-    
-    Args:
-        content: The CSV string content.
-        output_filename: The name of the file to save (e.g., 'risk_matrix.csv').
-    """
-    output_path = os.path.join("data/preprocessed", output_filename)
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
-    with open(output_path, "w", encoding="utf-8-sig") as f:
-        f.write(content)
-    
-    log(f"💾 Saved PDF extraction to: {output_path}")
-    return f"Successfully saved CSV to {output_path}"
-
-@function_tool
-def update_csv_with_correction(content: str, output_filename: str) -> str:
-    """
-    Updates an existing CSV file with corrected content and logs the differences.
-    Use this tool ONLY when correcting an already saved CSV after verification.
-    
-    Args:
-        content: The new corrected CSV string content.
-        output_filename: The name of the file to update (e.g., 'risk_matrix.csv').
-    """
-    output_path = os.path.join("data/preprocessed", output_filename)
-    
-    if not os.path.exists(output_path):
-        return save_csv_from_pdf(content, output_filename)
-        
-    # Read old content for comparison
-    with open(output_path, "r", encoding="utf-8-sig") as f:
-        old_lines = f.readlines()
-        
-    new_lines = content.splitlines(keepends=True)
-    
-    # Simple diff count
-    diff_count = 0
-    # Compare line by line (basic heuristic)
-    min_len = min(len(old_lines), len(new_lines))
-    for i in range(min_len):
-        if old_lines[i].strip() != new_lines[i].strip():
-            diff_count += 1
-            
-    diff_count += abs(len(old_lines) - len(new_lines))
-    
-    with open(output_path, "w", encoding="utf-8-sig") as f:
-        f.write(content)
-    
-    log(f"🛠️ Correcting CSV: {output_filename}")
-    log(f"   -> Updated {diff_count} lines with corrections based on text verification.")
-    
-    return f"Successfully updated CSV with {diff_count} line changes."
+from tools.formats.pdf import (
+    extract_text_from_pdf,
+    file_to_base64,
+    save_csv_from_pdf,
+    update_csv_with_correction
+)
+from custom_agents.consolidator.extractors.pdf.pdf_cleaner import pdf_cleaner
 
 pdf_extractor = Agent(
-    name="PdfExtractor",
+    name="Pdf Extractor",
     model="gpt-5",
     instructions="""
     Eres un agente experto en extracción de datos de documentos PDF.
+    PRIMERO: Llama a `report_agent_start` con tu nombre y una descripción corta.
     Tu tarea es recibir un archivo PDF, encontrar la tabla de datos financieros o de riesgo de cooperativas, y extraerla COMPLETAMENTE (si esta separada en paginas juntala, pero tienes que extraer TODA la tabla) y EXACTAMENTE como está.
     Asegurate que cada celda caudre con el lugar de la tabla en el que estaba en el pdf, no deberia haber celdas sin datos (pero NO te puedes inventar ninguno), ni deben haber datos en lugares en donde no hay headers por ejemplo (tipo fuera de la estructura principal de la tabla).
     Si se trata de una valoracion de riesgos asegurate de obtener todos los valores de riesgos y exactamente donde deberian estar en la tabla.
@@ -83,22 +29,36 @@ pdf_extractor = Agent(
        - Busca discrepancias en valores numéricos o valores de riesgos (ej: AA-, numeros, etc).
        - Si encuentras discrepancias en esos valores deterministicos, CORRIGE el contenido CSV y guárdalo usando `update_csv_with_correction`.
        - PERO RECUERDA, EL CSV INCIAL ES EL QUE DEBE TENER MAS VALIDEZ, Y SU ESTRUCTURA NO LA CAMBIES PARA NADA, SOLO HAY QUE COMPARAR VALORES Y CAMBIAR SI NO LOS DETERMINASTE BIEN PORQUE CON EL TEXTO EXTRAIDO EL VALOR SI O SI ES ESE. 
+    4. LIMPIEZA FINAL (OBLIGATORIO):
+       - Llama al agente `clean_csvs` pasando la ruta COMPLETA del archivo CSV generado (ej: `data/preprocessed/riesgo_2025.csv`) y el `target_segment` si se te proporcionó.
+       - Esto estandarizará las columnas y filtrará filas si es necesario.
     
-    El usuario te proporcionará el nombre del archivo de salida en el prompt. Úsalo.
+    El usuario te proporcionará el nombre del archivo de salida y opcionalmente el `target_segment` en el prompt.
     """,
-    tools=[save_csv_from_pdf, extract_text_from_pdf, update_csv_with_correction]
+    tools=[
+        report_agent_start,
+        save_csv_from_pdf, 
+        extract_text_from_pdf, 
+        update_csv_with_correction,
+        pdf_cleaner.as_tool(
+            tool_name="clean_csvs",
+            tool_description="Limpia y estandariza un archivo CSV específico, filtrando por segmento si es necesario.",
+            max_turns=15
+        )
+    ]
 )
 
 @function_tool
-async def process_pdf(file_path: str, output_filename: str) -> str:
+async def process_pdf(file_path: str, output_filename: str, target_segment: str = None) -> str:
     """
     Procesa un archivo PDF para extraer tablas y guardarlas como CSV.
     
     Args:
         file_path: Ruta al archivo PDF (ej: 'data/preprocessed/archivo.pdf').
         output_filename: Nombre del archivo CSV de salida (ej: 'riesgo_junio_2025.csv').
+        target_segment: (Opcional) Segmento específico a filtrar (ej: "1").
     """
-    log(f"📄 Procesando PDF: {file_path}")
+    log(f"📄 Procesando PDF: {file_path} (Segmento: {target_segment})")
     
     if not os.path.exists(file_path):
         return f"Error: El archivo {file_path} no existe."
@@ -106,6 +66,12 @@ async def process_pdf(file_path: str, output_filename: str) -> str:
     try:
         b64_file = file_to_base64(file_path)
         
+        prompt = f"Extrae la tabla de este PDF y guárdala como '{output_filename}'. Luego verifica el texto con extract_text_from_pdf('{file_path}') y corrige si es necesario."
+        if target_segment:
+            prompt += f" Finalmente, usa clean_csvs pasando el archivo 'data/preprocessed/{output_filename}' y target_segment='{target_segment}'."
+        else:
+            prompt += f" Finalmente, usa clean_csvs pasando el archivo 'data/preprocessed/{output_filename}'."
+
         # Mensaje inicial con el archivo y la instrucción
         messages = [
             {
@@ -120,7 +86,7 @@ async def process_pdf(file_path: str, output_filename: str) -> str:
             },
             {
                 "role": "user",
-                "content": f"Extrae la tabla de este PDF y guárdala como '{output_filename}'. Luego verifica el texto con extract_text_from_pdf('{file_path}') y corrige si es necesario."
+                "content": prompt
             }
         ]
         
@@ -128,7 +94,7 @@ async def process_pdf(file_path: str, output_filename: str) -> str:
         result = await Runner.run(
             starting_agent=pdf_extractor,
             input=messages,
-            max_turns=10
+            max_turns=15
         )
         
         print(f"Procesamiento de PDF completado. Resultado: {result.final_output}")

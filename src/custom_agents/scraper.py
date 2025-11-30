@@ -1,5 +1,6 @@
 from agents import Agent
 from agents.model_settings import ModelSettings
+from tools.shared import report_agent_start
 
 from tools.internet.search import internet_search
 from tools.browser.navigation import (
@@ -21,6 +22,7 @@ from tools.browser.download import (
 from tools.utils.http import inspect_download_url
 from tools.utils.datetime import get_current_date
 from tools.utils.file_logging import save_download_summary
+from tools.utils.filesystem import clear_directories
 
 
 scraper = Agent(
@@ -28,7 +30,7 @@ scraper = Agent(
 	model="gpt-4.1",
 	instructions="""
 Eres un agente experto en inteligencia financiera y web scraping enfocado en el sector de la Economía Popular y Solidaria de Ecuador.
-Tu OBJETIVO PRINCIPAL es localizar y descargar los "Boletines Financieros" y las matrices de "Valores de Riesgo" de todas las Cooperativas del Ecuador.
+Tu OBJETIVO PRINCIPAL es localizar y descargar los "Boletines Financieros" y los "Valores de Riesgo" de TODAS las Cooperativas del Ecuador.
 
 CONTEXTO:
 - La información suele estar organizada por "Segmentos" (1, 2, 3, etc.).
@@ -42,18 +44,21 @@ HERRAMIENTAS Y CAPACIDADES:
 - Ejecución directa de JavaScript
 - Descarga de archivos
 
-FLUJO DE TRABAJO OBLIGATORIO:
+FLUJO DE TRABAJO OBLIGATORIO (NO TE PUEDES SALTAR PASOS):
 
 0) PREPARACIÓN
+- Llama primero a `report_agent_start` pasando: nombre del agente y una descripción corta.
 Siempre que el objetivo mencione "más reciente", "último", "actual" o similar:
   - Llama primero a get_current_date().
   - Guarda mentalmente la fecha actual para poder saber qué es lo más reciente.
+  - EJECUTA `clear_directories` pasando `['data/raw/']` para asegurar que la carpeta de descargas esté limpia antes de empezar.
 
 1) INVESTIGACIÓN
 - Si NO recibes una URL exacta y verificable en el objetivo, DEBES usar internet_search() antes de intentar cualquier browser_open().
 - Incluso si crees saber la URL, debes validarla primero con internet_search().
+- Prioriza buscar primero si hay una entidad oficial que tenga todos los datos.
 - Evalúa títulos, snippets y dominios.
-- Prioriza dominios oficiales (.gob, .edu, .org).
+- Siempre usa dominios oficiales (.gob.ec, etc).
 - Decide la mejor URL para el objetivo planteado y continúa con el flujo de trabajo si al final del flujo vez que te toca ir a otra pagina web, repite el paso de INVESTIGACIÓN, pero trata de priorizar hacerlo con la menor cantidad de búsquedas posibles.
 
 2) NAVEGACIÓN
@@ -99,36 +104,24 @@ REGLAS CRÍTICAS:
 - Piensa paso a paso.
 - No te saltes fases.
 - No te rindas ante la primera falla.
-
-CUANDO completes correctamente el objetivo, responde SOLO:
-✅ MISIÓN COMPLETADA
 """,
 	tools=[
-		# Investigación
+		report_agent_start,
 		internet_search,
-
-		# Navegación
 		browser_open,
 		browser_click,
 		browser_type,
 		browser_wait,
-
-		# Exploración avanzada
 		browser_scroll,
 		browser_get_links,
-
-		# Extracción
 		browser_get_text,
 		browser_eval,
-
-		# Descarga
 		download_file,
 		browser_download_from_click,
 		inspect_download_url,
-
-		# Utilidades
 		get_current_date,
 		save_download_summary,
+        clear_directories,
 	],
 	model_settings=ModelSettings(
 		temperature=0.15,

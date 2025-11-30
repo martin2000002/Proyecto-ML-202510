@@ -5,6 +5,44 @@ from typing import List, Dict, Any
 from agents import function_tool
 from tools.shared import log
 
+import shutil
+
+@function_tool
+def clear_directories(directory_paths: List[str]) -> str:
+    """
+    Deletes all contents of multiple directories but keeps the directories themselves.
+    
+    Args:
+        directory_paths: A list of paths to the directories to clear.
+        
+    Returns:
+        A success message summarizing the results.
+    """
+    log(f"🧹 Clearing directories: {directory_paths}")
+    results = []
+    try:
+        for directory_path in directory_paths:
+            if not os.path.exists(directory_path):
+                os.makedirs(directory_path, exist_ok=True)
+                results.append(f"{directory_path}: Created (was missing)")
+                continue
+                
+            for filename in os.listdir(directory_path):
+                file_path = os.path.join(directory_path, filename)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    results.append(f"{directory_path}: Failed to delete {filename} ({e})")
+            
+            results.append(f"{directory_path}: Cleared")
+                
+        return f"Operation completed. Results: {', '.join(results)}"
+    except Exception as e:
+        return f"Error clearing directories: {str(e)}"
+
 @function_tool
 def list_files_recursive(directory_path: str) -> List[str]:
     """

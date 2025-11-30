@@ -6,13 +6,14 @@ from agents import function_tool
 from tools.shared import log
 
 
+@function_tool
 def merge_and_clean_csvs(temp_folder: str, output_folder: str, output_filename: str) -> str:
     """
     Merges all CSV files in a temporary folder into a single consolidated CSV file.
     
     The process involves:
     1. Iterating through CSVs in the temp folder.
-    2. Merging them based on the first column (renamed to 'Cooperativa').
+    2. Merging them based on the first column (renamed to 'cooperativa').
     3. Performing a Left Join starting with the first CSV (Primary Key source).
     4. Cleaning the result: removing empty columns, all-zero columns, and constant columns.
     
@@ -47,11 +48,11 @@ def merge_and_clean_csvs(temp_folder: str, output_folder: str, output_filename: 
         log(f"🔹 Loading Master CSV: {files[0]}")
         df_master = pd.read_csv(first_file_path, encoding='utf-8-sig')
         
-        # Rename first column to 'Cooperativa'
+        # Rename first column to 'cooperativa'
         if not df_master.empty:
             old_name = df_master.columns[0]
-            df_master.rename(columns={old_name: 'Cooperativa'}, inplace=True)
-            log(f"   -> Renamed primary key column '{old_name}' to 'Cooperativa'")
+            df_master.rename(columns={old_name: 'cooperativa'}, inplace=True)
+            log(f"   -> Renamed primary key column '{old_name}' to 'cooperativa'")
         
         # Iterate and Merge
         for filename in files[1:]:
@@ -64,18 +65,18 @@ def merge_and_clean_csvs(temp_folder: str, output_folder: str, output_filename: 
                 log(f"   ⚠️ Skipping empty file: {filename}")
                 continue
                 
-            # Rename first column to 'Cooperativa' for merging
-            df_curr.rename(columns={df_curr.columns[0]: 'Cooperativa'}, inplace=True)
+            # Rename first column to 'cooperativa' for merging
+            df_curr.rename(columns={df_curr.columns[0]: 'cooperativa'}, inplace=True)
             
             # Drop duplicates in the current file's key to avoid cartesian explosion if 1:Many is not desired
             # The user said "solo deben haber resgistros por cooperativas... que ya empezo a crear"
-            # Assuming 1:1 relationship is expected for "Cooperativa" across tables.
-            if df_curr['Cooperativa'].duplicated().any():
+            # Assuming 1:1 relationship is expected for "cooperativa" across tables.
+            if df_curr['cooperativa'].duplicated().any():
                 log(f"   ⚠️ Found duplicate keys in {filename}. Keeping first occurrence.")
-                df_curr.drop_duplicates(subset=['Cooperativa'], keep='first', inplace=True)
+                df_curr.drop_duplicates(subset=['cooperativa'], keep='first', inplace=True)
             
             # Left Merge: Keep only rows present in df_master
-            df_master = pd.merge(df_master, df_curr, on='Cooperativa', how='left')
+            df_master = pd.merge(df_master, df_curr, on='cooperativa', how='left')
             
         log(f"✅ Merge complete. Shape: {df_master.shape}")
         
