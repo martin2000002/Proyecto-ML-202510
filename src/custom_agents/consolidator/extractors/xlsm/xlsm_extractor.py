@@ -85,7 +85,7 @@ TU MISION:
              - `start_col`: La `columna_inicial`.
              - `end_col`: La `columna_fin`.
              - `output_csv_path`: El archivo temporal de esta hoja.
-             - `feature_name_map_json`: String JSON `{ "indice_fila": "nuevo_nombre_snake_case" }` para renombrar features.
+             - `feature_name_map_json`: String JSON `["indice_fila": "nuevo_nombre_snake_case" ]` para renombrar features.
                - ÚSALO para estandarizar nombres (ej: "Patrimonio / Activos" -> "patrimonio_sobre_activos").
                - Si no lo usas, se aplicará una normalización automática básica.
           3. Detente si encuentras indicadores de fin de tabla (Totales, notas, vacíos consecutivos).
